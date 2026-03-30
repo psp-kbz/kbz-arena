@@ -1,19 +1,79 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import logo from "@/assets/logo/KBZArena-logo.png";
+import { useAuthStore } from "@/stores/auth.store";
+import { useUserStore } from "@/stores/user.store";
+import { getAuthCodeAsync, requestTokenAsync, splashLoginAsync } from "./query";
 
 export function Splash() {
   const navigate = useNavigate();
+  const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const setUser = useUserStore((state) => state.setUser);
+  const [statusMessage, setStatusMessage] = useState("Preparing your arena...");
+  const [errorMessage, setErrorMessage] = useState("");
+  const startedRef = useRef(false);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      navigate("/home", { replace: true });
-    }, 1800);
+    if (startedRef.current) {
+      return;
+    }
 
-    return () => window.clearTimeout(timer);
-  }, [navigate]);
+    startedRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setStatusMessage("Requesting access token...");
+        const tokenResponse = await requestTokenAsync();
+        const accessToken = tokenResponse.access_token;
+
+        if (!accessToken) {
+          throw new Error("Access token is missing in token response");
+        }
+
+        if (!cancelled) {
+          setAccessToken(accessToken);
+        }
+
+        setStatusMessage("Getting authorization code...");
+        const authCode = await getAuthCodeAsync();
+
+        if (!authCode) {
+          throw new Error("Auth code is missing");
+        }
+
+        setStatusMessage("Signing you in...");
+        const loginResponse = await splashLoginAsync(authCode);
+
+        const user = loginResponse.result;
+
+        if (!cancelled) {
+          setUser(user ?? null);
+          setStatusMessage("Welcome to KBZ Arena");
+          timerRef.current = window.setTimeout(() => {
+            navigate("/home", { replace: true });
+          }, 700);
+        }
+      } catch (error) {
+        console.error("Splash auto login failed:", error);
+
+        if (!cancelled) {
+          setErrorMessage("Unable to auto login. You can still continue.");
+          setStatusMessage("Auto login failed");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+      }
+    };
+  }, [navigate, setAccessToken, setUser]);
 
   return (
     <section className="splash-screen">
@@ -46,6 +106,8 @@ export function Splash() {
           <p className="splash-text">
             Squad up, register fast, and enter the arena.
           </p>
+          <p className="splash-text">{statusMessage}</p>
+          {errorMessage && <p className="splash-text">{errorMessage}</p>}
         </motion.div>
 
         <motion.button

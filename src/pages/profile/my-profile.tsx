@@ -13,8 +13,12 @@ import {
   X,
 } from "lucide-react";
 import { profile } from "@/mock/arena-data";
+import { useUserStore } from "@/stores/user.store";
 
 export default function MyProfilePage() {
+  const user = useUserStore((state) => state.user);
+  const displayName = user?.fullName?.trim() || profile.name;
+  const displayPhone = user?.msisdn?.trim() || profile.phone;
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     mlbbIgn: profile.savedGameIds.mlbbIgn,
@@ -48,8 +52,8 @@ export default function MyProfilePage() {
         <div className="row-inline">
           <span className="avatar-badge lg">{profile.avatar}</span>
           <div>
-            <p className="page-title">{profile.name}</p>
-            <p className="muted">{profile.phone}</p>
+            <p className="page-title">{displayName}</p>
+            <p className="muted">{displayPhone}</p>
           </div>
         </div>
 
@@ -74,13 +78,13 @@ export default function MyProfilePage() {
         <div className="profile-form-grid mt-16">
           <div className="readonly-info-card">
             <p className="muted">Full Name</p>
-            <strong>{profile.name}</strong>
+            <strong>{displayName}</strong>
           </div>
 
           <div className="readonly-info-card">
             <p className="muted">Phone Number</p>
             <p className="row-inline readonly-info-value">
-              <Phone size={15} /> {profile.phone}
+              <Phone size={15} /> {displayPhone}
             </p>
           </div>
         </div>
